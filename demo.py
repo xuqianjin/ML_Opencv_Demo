@@ -239,25 +239,30 @@ def OCR_area():
     gaussian = cv2.GaussianBlur(gray, (3, 3), 0, 0, cv2.BORDER_DEFAULT)
 
     canny = cv2.Canny(gaussian, 30, 90)
-    element1 = cv2.getStructuringElement(cv2.MORPH_RECT, (20, 20))
+    element1 = cv2.getStructuringElement(cv2.MORPH_RECT, (50, 30))
     dilation = cv2.dilate(canny, element1, iterations=1)
     # ret, binary = cv2.threshold(dilation, 127, 255, cv2.THRESH_BINARY)
     image, contours, hierarchy = cv2.findContours(dilation, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
     region = []
-    area = 0
+    print(size)
     for i in range(len(contours)):
         cnt = contours[i]
-        hi = hierarchy[0][i]
-        if (area < cv2.contourArea(cnt)):
-            print(hi, cnt, area)
-            area = cv2.contourArea(cnt)
-            rect = cv2.minAreaRect(cnt)
-            box = cv2.boxPoints(rect)
-            box = np.int0(box)
-            # region.append(cnt)
-    result = drawRect([box], img)
+        # 找到最小的矩形，该矩形可能有方向
+        boundrect = cv2.boundingRect(cnt)
+        # 排除最外层框
+        if (boundrect[2] == size[0]):
+            continue
+        rect = cv2.minAreaRect(cnt)
+        box = cv2.boxPoints(rect)
+        box = np.int0(box)
+        # 计算高度
+        absheight = abs(box[0][1] - box[2][1])
+        if (absheight < 1000):
+            continue
+        region.append(box)
+    result = drawRect(region, img)
     plts = [gray, gaussian, canny, dilation, result]
-    # showplt(plts)
+    showplt(plts)
 
 
 def OCR_demo():
@@ -283,7 +288,6 @@ def OCR_demo():
         box = np.int0(box)
         # 计算高度
         height = abs(box[0][1] - box[2][1])
-        print(height)
         if (height < 16 or height > 100):
             continue
         region.append(box)
