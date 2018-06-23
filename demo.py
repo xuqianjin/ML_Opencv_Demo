@@ -346,16 +346,16 @@ def 直线检测():
     gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
     gauss = cv2.GaussianBlur(gray, (3, 3), 0)
     ret, binary = cv2.threshold(gauss, 80, 255, cv2.THRESH_BINARY_INV)
-    element1 = cv2.getStructuringElement(cv2.MORPH_RECT, (10, 5))
+    element1 = cv2.getStructuringElement(cv2.MORPH_RECT, (50, 5))
     # 膨胀一次，让轮廓突出
     dilation = cv2.dilate(binary, element1, iterations=1)
 
     canny = cv2.Canny(dilation, 50, 150)
 
     # 经验参数
-    minLineLength = 10
+    minLineLength = 50
     maxLineGap = 10
-    lines = cv2.HoughLinesP(canny, 1, np.pi / 180, 80, None, minLineLength, maxLineGap)
+    lines = cv2.HoughLinesP(canny, 10, np.pi / 180, 160, None, minLineLength, maxLineGap)
     lineresult = drawLine(lines, img)
     plts = [gray, gauss, binary, dilation, canny, lineresult]
     showplt(plts)
