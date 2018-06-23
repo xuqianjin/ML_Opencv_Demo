@@ -3,6 +3,7 @@ import matplotlib.pyplot as plt
 from PIL import ImageEnhance
 from PIL import Image
 import os
+from math import *
 import numpy as np
 
 
@@ -228,13 +229,52 @@ def drawRect(region, img):
     return img
 
 
+def drawLine(lines, img):
+    if (lines is None):
+        return
+    for line in lines:
+        x1, y1, x2, y2 = line[0]
+        cv2.line(img, (x1, y1), (x2, y2), (0, 255, 0), 2)
+    return img
+
+
+# 定义旋转rotate函数
+def rotateImg(image, angle, center=None, scale=1.0):
+    # 获取图像尺寸
+    (h, w) = image.shape[:2]
+    # 若未指定旋转中心，则将图像中心设为旋转中心
+    if center is None:
+        center = (w / 2, h / 2)
+    # 执行旋转
+    M = cv2.getRotationMatrix2D(center, angle, scale)
+    rotated = cv2.warpAffine(image, M, (w, h))
+    # 返回旋转后的图像
+    return rotated
+
+
+# 旋转并裁剪图片
+def rotateCut(img, degree, box):
+    height, width = img.shape[:2]
+    heightNew = int(width * fabs(sin(radians(degree))) + height * fabs(cos(radians(degree))))
+    widthNew = int(height * fabs(sin(radians(degree))) + width * fabs(cos(radians(degree))))
+    matRotation = cv2.getRotationMatrix2D((width / 2, height / 2), degree, 1)
+    matRotation[0, 2] += (widthNew - width) / 2
+    matRotation[1, 2] += (heightNew - height) / 2
+    imgRotation = cv2.warpAffine(img, matRotation, (widthNew, heightNew))
+    pt0 = box[1]
+    pt3 = box[3]
+    [[pt0[0]], [pt0[1]]] = np.dot(matRotation, np.array([[pt0[0]], [pt0[1]], [1]]))
+    [[pt3[0]], [pt3[1]]] = np.dot(matRotation, np.array([[pt3[0]], [pt3[1]], [1]]))
+    imgOut = imgRotation[int(pt0[1]):int(pt3[1]), int(pt0[0]):int(pt3[0])]
+    return imgOut
+
+
 # 纸张区域识别
 def OCR_area():
     img = cv2.imread('images/444.jpg')
     height, width = img.shape[:2]
     size = (int(width * 0.6), int(height * 0.6))
     img = cv2.resize(img, size, interpolation=cv2.INTER_AREA)
-
     gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
     gaussian = cv2.GaussianBlur(gray, (3, 3), 0, 0, cv2.BORDER_DEFAULT)
 
@@ -242,26 +282,31 @@ def OCR_area():
     element1 = cv2.getStructuringElement(cv2.MORPH_RECT, (50, 30))
     dilation = cv2.dilate(canny, element1, iterations=1)
     # ret, binary = cv2.threshold(dilation, 127, 255, cv2.THRESH_BINARY)
+
     image, contours, hierarchy = cv2.findContours(dilation, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+    rects = []
     region = []
-    print(size)
     for i in range(len(contours)):
         cnt = contours[i]
         # 找到最小的矩形，该矩形可能有方向
         boundrect = cv2.boundingRect(cnt)
-        # 排除最外层框
-        if (boundrect[2] == size[0]):
-            continue
         rect = cv2.minAreaRect(cnt)
+        # 排除最外层框
+        if (boundrect[2] == size[0] or rect[1][1] < 1000):
+            continue
         box = cv2.boxPoints(rect)
         box = np.int0(box)
-        # 计算高度
-        absheight = abs(box[0][1] - box[2][1])
-        if (absheight < 1000):
-            continue
+        rects.append(rect)
         region.append(box)
+
     result = drawRect(region, img)
     plts = [gray, gaussian, canny, dilation, result]
+    if (len(rects) == 1):
+        box = region[0]
+        rect = rects[0]
+        angle = rect[2]
+        newimg = rotateCut(img, angle, box)
+        plts.append(newimg)
     showplt(plts)
 
 
@@ -296,6 +341,26 @@ def OCR_demo():
     showplt(plts)
 
 
+def 直线检测():
+    img = cv2.imread('images/222.jpg')
+    gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
+    gauss = cv2.GaussianBlur(gray, (3, 3), 0)
+    ret, binary = cv2.threshold(gauss, 80, 255, cv2.THRESH_BINARY_INV)
+    element1 = cv2.getStructuringElement(cv2.MORPH_RECT, (10, 5))
+    # 膨胀一次，让轮廓突出
+    dilation = cv2.dilate(binary, element1, iterations=1)
+
+    canny = cv2.Canny(dilation, 50, 150)
+
+    # 经验参数
+    minLineLength = 10
+    maxLineGap = 10
+    lines = cv2.HoughLinesP(canny, 1, np.pi / 180, 80, None, minLineLength, maxLineGap)
+    lineresult = drawLine(lines, img)
+    plts = [gray, gauss, binary, dilation, canny, lineresult]
+    showplt(plts)
+
+
 if __name__ == '__main__':
     img = cv2.imread('images/333.jpg')
     # showRGB(img)
@@ -304,5 +369,6 @@ if __name__ == '__main__':
     # enhance(img)
     # facePick()
     # carTag()
-    OCR_area()
+    # OCR_area()
     # OCR_demo()
+    直线检测()
