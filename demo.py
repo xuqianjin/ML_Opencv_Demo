@@ -15,8 +15,9 @@ def showplt(plts):
     elif (len(plts) % (colum * row) >= 1):
         row = row + 1
     for i in range(len(plts)):
-        plt.subplot(row, colum, i + 1)
-        plt.imshow(plts[i], 'gray')
+        if (plts[i] is not None):
+            plt.subplot(row, colum, i + 1)
+            plt.imshow(plts[i], 'gray')
     plt.show()
 
 
@@ -341,23 +342,67 @@ def OCR_demo():
     showplt(plts)
 
 
+def 透视变换():
+    img = cv2.imread('images/444.jpg')
+    height, width = img.shape[:2]
+    size = (int(width * 0.6), int(height * 0.6))
+    img = cv2.resize(img, size, interpolation=cv2.INTER_AREA)
+    gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
+    gaussian = cv2.GaussianBlur(gray, (3, 3), 0, 0, cv2.BORDER_DEFAULT)
+
+    canny = cv2.Canny(gaussian, 30, 90)
+    element1 = cv2.getStructuringElement(cv2.MORPH_RECT, (50, 30))
+    dilation = cv2.dilate(canny, element1, iterations=1)
+    # ret, binary = cv2.threshold(dilation, 127, 255, cv2.THRESH_BINARY)
+    image, contours, hierarchy = cv2.findContours(dilation, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+    rects = []
+    region = []
+    for i in range(len(contours)):
+        cnt = contours[i]
+        # 找到最小的矩形，该矩形可能有方向
+        boundrect = cv2.boundingRect(cnt)
+        rect = cv2.minAreaRect(cnt)
+        # 排除最外层框 并且矩形框height不低于阈值
+        if (boundrect[2] == size[0] or rect[1][1] < 500):
+            continue
+        box = cv2.boxPoints(rect)
+        box = np.int0(box)
+        rects.append(rect)
+        region.append(box)
+    result = drawRect(region, img)
+    plts = [img, gray, gaussian, canny, dilation, result]
+    if (len(rects) == 1):
+        box = region[0]
+        rect = rects[0]
+        width, height = rect[1]
+        width = int(width)
+        height = int(height)
+        dist = np.float32([[0, height], [0, 0], [width, 0], [width, height]])
+        src = np.float32(box)
+        # 注意四点顺序,src和dist需要保持一致,顺序影响最终图像的旋转方向
+        M = cv2.getPerspectiveTransform(src, dist)
+        result = cv2.warpPerspective(img, M, (width, height))
+        plts.append(result)
+    showplt(plts)
+
+
 def 直线检测():
-    img = cv2.imread('images/222.jpg')
+    img = cv2.imread('images/555.jpg')
     gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
     gauss = cv2.GaussianBlur(gray, (3, 3), 0)
-    ret, binary = cv2.threshold(gauss, 80, 255, cv2.THRESH_BINARY_INV)
+    ret, binary = cv2.threshold(gauss, 200, 255, cv2.THRESH_BINARY)
     element1 = cv2.getStructuringElement(cv2.MORPH_RECT, (50, 5))
     # 膨胀一次，让轮廓突出
-    dilation = cv2.dilate(binary, element1, iterations=1)
+    # dilation = cv2.dilate(binary, element1, iterations=1)
 
-    canny = cv2.Canny(dilation, 50, 150)
+    canny = cv2.Canny(binary, 50, 150)
 
     # 经验参数
-    minLineLength = 50
-    maxLineGap = 10
-    lines = cv2.HoughLinesP(canny, 10, np.pi / 180, 160, None, minLineLength, maxLineGap)
+    minLineLength = 100
+    maxLineGap = 8
+    lines = cv2.HoughLinesP(canny, 1, np.pi / 180, 1, None, minLineLength, maxLineGap)
     lineresult = drawLine(lines, img)
-    plts = [gray, gauss, binary, dilation, canny, lineresult]
+    plts = [gray, gauss, binary, canny, lineresult]
     showplt(plts)
 
 
@@ -371,4 +416,5 @@ if __name__ == '__main__':
     # carTag()
     # OCR_area()
     # OCR_demo()
-    直线检测()
+    # 直线检测()
+    透视变换()
