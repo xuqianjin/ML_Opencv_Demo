@@ -5,6 +5,7 @@ from PIL import Image
 import os
 from math import *
 import numpy as np
+from scipy import signal
 
 
 def showplt(plts):
@@ -407,7 +408,8 @@ def 直线检测():
 
 
 if __name__ == '__main__':
-    img = cv2.imread('images/333.jpg')
+    img = cv2.imread('images/car.jpg')
+    gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
     # showRGB(img)
     # showBinary(img)
     # showsome(img)
@@ -417,4 +419,15 @@ if __name__ == '__main__':
     # OCR_area()
     # OCR_demo()
     # 直线检测()
-    透视变换()
+    # 透视变换()
+    plt.plot([1, 2, 3, 4])
+    plt.plot([1, 1, 3])
+    end = np.convolve([1, 2, 3, 4], [1, 1, 3], 'full')
+    plt.plot(end)
+    fil = np.array([[-1, -1, 0],  # 这个是设置的滤波，也就是卷积核
+                    [-1, 0, 1],
+                    [0, 1, 1]])
+    end = signal.convolve2d(gray, fil)
+    res = cv2.filter2D(img, -1, fil)
+    plts = [img, gray, end, res]
+    showplt(plts)
